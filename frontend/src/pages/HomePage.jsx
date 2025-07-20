@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useFlashcardStore } from "../store/useFlashcardStore.js";
-import { Plus, Edit, Trash2, Save, X } from "lucide-react";
+import { Plus, Edit, Trash2, Save, X, BookOpen } from "lucide-react";
 
 const HomePage = () => {
     const { flashcards, isLoading, getFlashcards, createFlashcard, updateFlashcard, deleteFlashcard } = useFlashcardStore();

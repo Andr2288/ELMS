@@ -7,11 +7,10 @@ import User from "../models/user.model.js";
 import cloudinary from "../lib/cloudinary.js";
 
 const signup = async (req, res) => {
-
     const { fullName, email, password } = req.body;
 
     if (!fullName || !email || !password) {
-        return res.status(400).json({message: "All files are required"});
+        return res.status(400).json({message: "All fields are required"});
     }
 
     try {
@@ -28,9 +27,9 @@ const signup = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const newUser = new User({
-           fullName: fullName,
-           email: email,
-           password: hashedPassword
+            fullName: fullName,
+            email: email,
+            password: hashedPassword
         });
 
         if (newUser) {
@@ -55,7 +54,6 @@ const signup = async (req, res) => {
 }
 
 const login = async (req, res) => {
-
     const { email, password } = req.body;
 
     try {
@@ -87,11 +85,10 @@ const login = async (req, res) => {
 }
 
 const logout = (req, res) => {
-
     try {
-     res.cookie("jwt", "", {maxAge:0});
+        res.cookie("jwt", "", {maxAge:0});
 
-     return res.status(200).json({message: "Logged out"});
+        return res.status(200).json({message: "Logged out"});
 
     } catch (error) {
         console.log("Error logged out", error.message);
@@ -100,7 +97,6 @@ const logout = (req, res) => {
 }
 
 const updateProfile = async (req, res) => {
-
     try {
         const { profilePic } = req.body;
         const userId = req.user._id
@@ -121,7 +117,6 @@ const updateProfile = async (req, res) => {
 }
 
 const checkAuth = (req, res) => {
-
     try {
         return res.status(200).json(req.user);
     }

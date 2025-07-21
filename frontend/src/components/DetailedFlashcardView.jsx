@@ -1,11 +1,68 @@
 // frontend/src/components/DetailedFlashcardView.jsx
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Edit, Trash2, Volume2 } from "lucide-react";
 
 const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
+    const [isChanging, setIsChanging] = useState(false);
+
+    const handleFlip = useCallback(() => {
+        if (!isChanging) {
+            setIsFlipped(!isFlipped);
+        }
+    }, [isChanging, isFlipped]);
+
+    const nextCard = useCallback(() => {
+        if (currentIndex < flashcards.length - 1 && !isChanging) {
+            setIsChanging(true);
+            setIsFlipped(false);
+            setTimeout(() => {
+                setCurrentIndex(currentIndex + 1);
+                setIsChanging(false);
+            }, 150);
+        }
+    }, [currentIndex, flashcards.length, isChanging]);
+
+    const prevCard = useCallback(() => {
+        if (currentIndex > 0 && !isChanging) {
+            setIsChanging(true);
+            setIsFlipped(false);
+            setTimeout(() => {
+                setCurrentIndex(currentIndex - 1);
+                setIsChanging(false);
+            }, 150);
+        }
+    }, [currentIndex, isChanging]);
+
+    const goToCard = useCallback((index) => {
+        if (index !== currentIndex && !isChanging) {
+            setIsChanging(true);
+            setIsFlipped(false);
+            setTimeout(() => {
+                setCurrentIndex(index);
+                setIsChanging(false);
+            }, 150);
+        }
+    }, [currentIndex, isChanging]);
+
+    // Keyboard navigation
+    useEffect(() => {
+        const handleKeyPress = (event) => {
+            if (event.key === 'ArrowLeft') {
+                prevCard();
+            } else if (event.key === 'ArrowRight') {
+                nextCard();
+            } else if (event.key === ' ' || event.key === 'Enter') {
+                event.preventDefault();
+                handleFlip();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [prevCard, nextCard, handleFlip]);
 
     if (!flashcards || flashcards.length === 0) {
         return (
@@ -17,26 +74,8 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
 
     const currentCard = flashcards[currentIndex];
 
-    const nextCard = () => {
-        if (currentIndex < flashcards.length - 1) {
-            setCurrentIndex(currentIndex + 1);
-            setIsFlipped(false);
-        }
-    };
-
-    const prevCard = () => {
-        if (currentIndex > 0) {
-            setCurrentIndex(currentIndex - 1);
-            setIsFlipped(false);
-        }
-    };
-
-    const handleFlip = () => {
-        setIsFlipped(!isFlipped);
-    };
-
     const speakText = (text) => {
-        if ('speechSynthesis' in window && text) {
+        if ('speechSynthesis' in window && text && !isChanging) {
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'en-US';
@@ -45,19 +84,30 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
         }
     };
 
+    // Stop speech when card changes
+    useEffect(() => {
+        window.speechSynthesis.cancel();
+    }, [currentIndex]);
+
     return (
         <div className="max-w-4xl mx-auto">
-            {/* Card Counter */}
+            {/* Card Counter and Controls Info */}
             <div className="text-center mb-4">
                 <span className="bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium">
                     {currentIndex + 1} з {flashcards.length}
                 </span>
+                <p className="text-xs text-gray-500 mt-2">
+                    ← → для навігації • Пробіл/Enter для перевороту
+                </p>
             </div>
 
             {/* Main Card */}
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden h-[380px] md:h-[420px] relative">
                 <div
-                    className="transition-transform duration-500 h-full cursor-pointer relative"
+                    key={currentIndex}
+                    className={`transition-all duration-300 h-full cursor-pointer relative ${
+                        isChanging ? 'opacity-70' : 'opacity-100'
+                    }`}
                     onClick={handleFlip}
                 >
                     {/* Front Side */}
@@ -66,7 +116,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                             isFlipped ? 'opacity-0' : 'opacity-100'
                         }`}
                     >
-                        <div className="h-full flex flex-col justify-center items-center p-6 bg-gradient-to-br from-blue-50 to-blue-100">
+                        <div className="h-full flex flex-col justify-center items-center p-6 bg-gradient-to-br from-gray-50 to-gray-100">
                             <div className="text-center">
                                 <h2 className="text-3xl font-bold text-gray-900 mb-3 break-words max-w-md">
                                     {currentCard.text}
@@ -81,9 +131,10 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        speakText(currentCard.text);
+                                        if (!isChanging) speakText(currentCard.text);
                                     }}
-                                    className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full transition-colors mb-6"
+                                    disabled={isChanging}
+                                    className="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 disabled:cursor-not-allowed text-white p-3 rounded-full transition-colors mb-6"
                                     title="Прослухати вимову"
                                 >
                                     <Volume2 className="w-5 h-5" />
@@ -102,10 +153,10 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                             isFlipped ? 'opacity-100' : 'opacity-0'
                         }`}
                     >
-                        <div className="h-full flex flex-col p-6 bg-gradient-to-br from-green-50 to-green-100">
+                        <div className="h-full flex flex-col p-6 bg-gradient-to-br from-slate-50 to-slate-100">
                             <div className="overflow-y-auto flex-1 space-y-3">
                                 {/* Word and Transcription */}
-                                <div className="text-center border-b border-green-200 pb-2 mb-3">
+                                <div className="text-center border-b border-slate-200 pb-2 mb-3">
                                     <h3 className="text-xl font-bold text-gray-900 mb-1">
                                         {currentCard.text}
                                     </h3>
@@ -140,7 +191,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                                 {currentCard.example && (
                                     <div>
                                         <h4 className="text-sm font-semibold text-gray-800 mb-1">Приклад:</h4>
-                                        <p className="text-gray-700 italic text-sm leading-relaxed bg-gray-50 p-2 rounded">
+                                        <p className="text-gray-700 italic text-sm leading-relaxed bg-white p-2 rounded border">
                                             "{currentCard.example}"
                                         </p>
                                     </div>
@@ -159,9 +210,10 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
-                            onEdit(currentCard);
+                            if (!isChanging) onEdit(currentCard);
                         }}
-                        className="bg-white/90 backdrop-blur-sm hover:bg-white text-blue-600 p-2 rounded-full shadow-lg transition-colors"
+                        disabled={isChanging}
+                        className="bg-white/90 backdrop-blur-sm hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-blue-600 p-2 rounded-full shadow-lg transition-colors"
                         title="Редагувати"
                     >
                         <Edit className="w-5 h-5" />
@@ -169,9 +221,10 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
-                            onDelete(currentCard._id);
+                            if (!isChanging) onDelete(currentCard._id);
                         }}
-                        className="bg-white/90 backdrop-blur-sm hover:bg-white text-red-600 p-2 rounded-full shadow-lg transition-colors"
+                        disabled={isChanging}
+                        className="bg-white/90 backdrop-blur-sm hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-red-600 p-2 rounded-full shadow-lg transition-colors"
                         title="Видалити"
                     >
                         <Trash2 className="w-5 h-5" />
@@ -183,7 +236,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             <div className="flex justify-between items-center mt-6">
                 <button
                     onClick={prevCard}
-                    disabled={currentIndex === 0}
+                    disabled={currentIndex === 0 || isChanging}
                     className="flex items-center space-x-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
                 >
                     <ChevronLeft className="w-4 h-4" />
@@ -194,11 +247,9 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     {flashcards.map((_, index) => (
                         <button
                             key={index}
-                            onClick={() => {
-                                setCurrentIndex(index);
-                                setIsFlipped(false);
-                            }}
-                            className={`w-2 h-2 rounded-full transition-colors ${
+                            onClick={() => goToCard(index)}
+                            disabled={isChanging}
+                            className={`w-2 h-2 rounded-full transition-colors disabled:cursor-not-allowed ${
                                 index === currentIndex
                                     ? 'bg-blue-600'
                                     : 'bg-gray-300 hover:bg-gray-400'
@@ -209,7 +260,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
 
                 <button
                     onClick={nextCard}
-                    disabled={currentIndex === flashcards.length - 1}
+                    disabled={currentIndex === flashcards.length - 1 || isChanging}
                     className="flex items-center space-x-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors text-sm"
                 >
                     <span>Наступна</span>

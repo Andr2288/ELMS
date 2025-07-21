@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Edit, Trash2, Volume2 } from "lucide-react";
+import { axiosInstance } from "../lib/axios.js";
+import toast from "react-hot-toast";
 
 const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     const [isChanging, setIsChanging] = useState(false);
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const [currentAudio, setCurrentAudio] = useState(null);
 
     const handleFlip = useCallback(() => {
         if (!isChanging) {
@@ -18,6 +22,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
         if (currentIndex < flashcards.length - 1 && !isChanging) {
             setIsChanging(true);
             setIsFlipped(false);
+            stopCurrentAudio();
             setTimeout(() => {
                 setCurrentIndex(currentIndex + 1);
                 setIsChanging(false);
@@ -29,6 +34,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
         if (currentIndex > 0 && !isChanging) {
             setIsChanging(true);
             setIsFlipped(false);
+            stopCurrentAudio();
             setTimeout(() => {
                 setCurrentIndex(currentIndex - 1);
                 setIsChanging(false);
@@ -40,12 +46,83 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
         if (index !== currentIndex && !isChanging) {
             setIsChanging(true);
             setIsFlipped(false);
+            stopCurrentAudio();
             setTimeout(() => {
                 setCurrentIndex(index);
                 setIsChanging(false);
             }, 150);
         }
     }, [currentIndex, isChanging]);
+
+    const stopCurrentAudio = useCallback(() => {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            setCurrentAudio(null);
+        }
+        setIsPlayingAudio(false);
+    }, [currentAudio]);
+
+    const speakText = async (text) => {
+        if (!text || isChanging || isPlayingAudio) return;
+
+        try {
+            setIsPlayingAudio(true);
+
+            // Stop any current audio
+            stopCurrentAudio();
+
+            // Create a loading toast
+            const loadingToast = toast.loading("Завантаження озвучення...");
+
+            const response = await axiosInstance.post("/tts/speech",
+                { text },
+                {
+                    responseType: 'blob',
+                    timeout: 30000 // 30 second timeout
+                }
+            );
+
+            // Remove loading toast
+            toast.dismiss(loadingToast);
+
+            // Create audio blob and play
+            const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+
+            setCurrentAudio(audio);
+
+            audio.onended = () => {
+                setIsPlayingAudio(false);
+                setCurrentAudio(null);
+                URL.revokeObjectURL(audioUrl);
+            };
+
+            audio.onerror = () => {
+                setIsPlayingAudio(false);
+                setCurrentAudio(null);
+                URL.revokeObjectURL(audioUrl);
+                toast.error("Помилка відтворення звуку");
+            };
+
+            await audio.play();
+
+        } catch (error) {
+            setIsPlayingAudio(false);
+            console.error("Error playing TTS:", error);
+
+            if (error.response?.status === 401) {
+                toast.error("OpenAI API ключ не налаштований");
+            } else if (error.response?.status === 429) {
+                toast.error("Перевищено ліміт запитів API");
+            } else if (error.code === 'ECONNABORTED') {
+                toast.error("Тайм-аут запиту. Спробуйте ще раз");
+            } else {
+                toast.error("Помилка генерації озвучення");
+            }
+        }
+    };
 
     // Keyboard navigation
     useEffect(() => {
@@ -64,6 +141,13 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
         return () => window.removeEventListener('keydown', handleKeyPress);
     }, [prevCard, nextCard, handleFlip]);
 
+    // Stop audio when component unmounts or card changes
+    useEffect(() => {
+        return () => {
+            stopCurrentAudio();
+        };
+    }, [currentIndex, stopCurrentAudio]);
+
     if (!flashcards || flashcards.length === 0) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -73,21 +157,6 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
     }
 
     const currentCard = flashcards[currentIndex];
-
-    const speakText = (text) => {
-        if ('speechSynthesis' in window && text && !isChanging) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.8;
-            window.speechSynthesis.speak(utterance);
-        }
-    };
-
-    // Stop speech when card changes
-    useEffect(() => {
-        window.speechSynthesis.cancel();
-    }, [currentIndex]);
 
     return (
         <div className="max-w-4xl mx-auto">
@@ -128,17 +197,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                                     </p>
                                 )}
 
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (!isChanging) speakText(currentCard.text);
-                                    }}
-                                    disabled={isChanging}
-                                    className="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 disabled:cursor-not-allowed text-white p-3 rounded-full transition-colors mb-6"
-                                    title="Прослухати вимову"
-                                >
-                                    <Volume2 className="w-5 h-5" />
-                                </button>
+                                // Тут буде кнопка озвучки
 
                                 <p className="text-gray-500 text-base">
                                     Натисніть, щоб побачити переклад
@@ -230,6 +289,14 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                         <Trash2 className="w-5 h-5" />
                     </button>
                 </div>
+
+                {/* Audio Status Indicator */}
+                {isPlayingAudio && (
+                    <div className="absolute bottom-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                        <span>Відтворення...</span>
+                    </div>
+                )}
             </div>
 
             {/* Navigation */}

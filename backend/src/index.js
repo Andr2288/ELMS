@@ -7,6 +7,7 @@ import cors from "cors";
 
 import authRoutes from "./routes/auth.route.js";
 import flashcardRoutes from "./routes/flashcard.route.js";
+import ttsRoutes from "./routes/tts.route.js";
 import database from "./lib/db.js";
 
 dotenv.config();
@@ -17,16 +18,17 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(cookieParser());
 app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
+    cors({
+        origin: "http://localhost:5173",
+        credentials: true,
+    })
 );
 
 app.use("/api/auth", authRoutes);
 app.use("/api/flashcards", flashcardRoutes);
+app.use("/api/tts", ttsRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Express server listening on port ${PORT}`);
-  database.connectDB();
+    console.log(`Express server listening on port ${PORT}`);
+    database.connectDB();
 });

@@ -1,7 +1,9 @@
 // frontend/src/components/FlashcardForm.jsx
 
 import { useState, useEffect } from "react";
-import { Save, X } from "lucide-react";
+import { Save, X, Volume2 } from "lucide-react";
+import { axiosInstance } from "../lib/axios.js";
+import toast from "react-hot-toast";
 
 const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) => {
     const [formData, setFormData] = useState({
@@ -11,6 +13,8 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
         explanation: "",
         example: ""
     });
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const [currentAudio, setCurrentAudio] = useState(null);
 
     useEffect(() => {
         if (editingCard) {
@@ -32,12 +36,83 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
         }
     }, [editingCard, isOpen]);
 
+    const stopCurrentAudio = () => {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            setCurrentAudio(null);
+        }
+        setIsPlayingAudio(false);
+    };
+
+    const speakText = async (text) => {
+        if (!text || isPlayingAudio) return;
+
+        try {
+            setIsPlayingAudio(true);
+
+            // Stop any current audio
+            stopCurrentAudio();
+
+            // Create a loading toast
+            const loadingToast = toast.loading("Завантаження озвучення...");
+
+            const response = await axiosInstance.post("/tts/speech",
+                { text },
+                {
+                    responseType: 'blob',
+                    timeout: 30000
+                }
+            );
+
+            // Remove loading toast
+            toast.dismiss(loadingToast);
+
+            // Create audio blob and play
+            const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+
+            setCurrentAudio(audio);
+
+            audio.onended = () => {
+                setIsPlayingAudio(false);
+                setCurrentAudio(null);
+                URL.revokeObjectURL(audioUrl);
+            };
+
+            audio.onerror = () => {
+                setIsPlayingAudio(false);
+                setCurrentAudio(null);
+                URL.revokeObjectURL(audioUrl);
+                toast.error("Помилка відтворення звуку");
+            };
+
+            await audio.play();
+
+        } catch (error) {
+            setIsPlayingAudio(false);
+            console.error("Error playing TTS:", error);
+
+            if (error.response?.status === 401) {
+                toast.error("OpenAI API ключ не налаштований");
+            } else if (error.response?.status === 429) {
+                toast.error("Перевищено ліміт запитів API");
+            } else if (error.code === 'ECONNABORTED') {
+                toast.error("Тайм-аут запиту. Спробуйте ще раз");
+            } else {
+                toast.error("Помилка генерації озвучення");
+            }
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.text.trim()) return;
 
         try {
             await onSubmit(formData);
+            stopCurrentAudio();
             onClose();
         } catch (error) {
             console.error('Error submitting form:', error);
@@ -51,6 +126,18 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
         }));
     };
 
+    const handleClose = () => {
+        stopCurrentAudio();
+        onClose();
+    };
+
+    // Stop audio when component unmounts
+    useEffect(() => {
+        return () => {
+            stopCurrentAudio();
+        };
+    }, []);
+
     if (!isOpen) return null;
 
     return (
@@ -62,7 +149,7 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                             {editingCard ? "Редагувати картку" : "Створити нову картку"}
                         </h2>
                         <button
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="text-gray-400 hover:text-gray-600 p-2"
                         >
                             <X className="w-6 h-6" />
@@ -76,14 +163,29 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Слово/Фраза <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            type="text"
-                            value={formData.text}
-                            onChange={(e) => handleInputChange('text', e.target.value)}
-                            placeholder="Введіть слово або фразу..."
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            required
-                        />
+                        <div className="flex space-x-2">
+                            <input
+                                type="text"
+                                value={formData.text}
+                                onChange={(e) => handleInputChange('text', e.target.value)}
+                                placeholder="Введіть слово або фразу..."
+                                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                required
+                            />
+                            <button
+                                type="button"
+                                onClick={() => speakText(formData.text)}
+                                disabled={!formData.text.trim() || isPlayingAudio}
+                                className={`px-4 py-3 rounded-lg transition-colors ${
+                                    isPlayingAudio
+                                        ? 'bg-green-500 hover:bg-green-600 animate-pulse'
+                                        : 'bg-purple-500 hover:bg-purple-600'
+                                } disabled:bg-gray-300 disabled:cursor-not-allowed text-white`}
+                                title={isPlayingAudio ? "Відтворення..." : "Прослухати вимову"}
+                            >
+                                <Volume2 className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Transcription */}
@@ -159,6 +261,14 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                         </div>
                     )}
 
+                    {/* Audio Status */}
+                    {isPlayingAudio && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center space-x-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <span className="text-green-700 text-sm">Відтворення озвучення...</span>
+                        </div>
+                    )}
+
                     {/* Actions */}
                     <div className="flex space-x-3 pt-4">
                         <button
@@ -177,7 +287,7 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                         </button>
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleClose}
                             className="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg font-medium transition-colors"
                         >
                             Скасувати

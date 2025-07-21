@@ -107,7 +107,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             };
 
             await audio.play();
-
+//
         } catch (error) {
             setIsPlayingAudio(false);
             console.error("Error playing TTS:", error);

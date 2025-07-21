@@ -63,7 +63,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
         setIsPlayingAudio(false);
     }, [currentAudio]);
 
-    const speakText = async (text) => {
+    const speakText = useCallback(async (text) => {
         if (!text || isChanging || isPlayingAudio) return;
 
         try {
@@ -73,7 +73,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             stopCurrentAudio();
 
             // Create a loading toast
-            const loadingToast = toast.loading("Завантаження озвучення...");
+            //const loadingToast = toast.loading("Завантаження озвучення...");
 
             const response = await axiosInstance.post("/tts/speech",
                 { text },
@@ -84,7 +84,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             );
 
             // Remove loading toast
-            toast.dismiss(loadingToast);
+            //toast.dismiss(loadingToast);
 
             // Create audio blob and play
             const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
@@ -107,7 +107,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             };
 
             await audio.play();
-//
+
         } catch (error) {
             setIsPlayingAudio(false);
             console.error("Error playing TTS:", error);
@@ -122,7 +122,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                 toast.error("Помилка генерації озвучення");
             }
         }
-    };
+    }, [isChanging, isPlayingAudio, stopCurrentAudio]);
 
     // Keyboard navigation
     useEffect(() => {
@@ -170,105 +170,12 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                 </p>
             </div>
 
-            {/* Main Card */}
-            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden h-[380px] md:h-[420px] relative">
-                <div
-                    key={currentIndex}
-                    className={`transition-all duration-300 h-full cursor-pointer relative ${
-                        isChanging ? 'opacity-70' : 'opacity-100'
-                    }`}
-                    onClick={handleFlip}
-                >
-                    {/* Front Side */}
-                    <div
-                        className={`absolute inset-0 transition-opacity duration-500 ${
-                            isFlipped ? 'opacity-0' : 'opacity-100'
-                        }`}
-                    >
-                        <div className="h-full flex flex-col justify-center items-center p-6 bg-gradient-to-br from-gray-50 to-gray-100">
-                            <div className="text-center">
-                                <h2 className="text-3xl font-bold text-gray-900 mb-3 break-words max-w-md">
-                                    {currentCard.text}
-                                </h2>
-
-                                {currentCard.transcription && (
-                                    <p className="text-base text-gray-600 mb-4 font-mono">
-                                        [{currentCard.transcription}]
-                                    </p>
-                                )}
-
-                                // Тут буде кнопка озвучки
-
-                                <p className="text-gray-500 text-base">
-                                    Натисніть, щоб побачити переклад
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Back Side */}
-                    <div
-                        className={`absolute inset-0 transition-opacity duration-500 ${
-                            isFlipped ? 'opacity-100' : 'opacity-0'
-                        }`}
-                    >
-                        <div className="h-full flex flex-col p-6 bg-gradient-to-br from-slate-50 to-slate-100">
-                            <div className="overflow-y-auto flex-1 space-y-3">
-                                {/* Word and Transcription */}
-                                <div className="text-center border-b border-slate-200 pb-2 mb-3">
-                                    <h3 className="text-xl font-bold text-gray-900 mb-1">
-                                        {currentCard.text}
-                                    </h3>
-                                    {currentCard.transcription && (
-                                        <p className="text-gray-600 font-mono text-sm">
-                                            [{currentCard.transcription}]
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Translation */}
-                                {currentCard.translation && (
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-gray-800 mb-1">Переклад:</h4>
-                                        <p className="text-lg text-gray-900 font-medium">
-                                            {currentCard.translation}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Explanation */}
-                                {currentCard.explanation && (
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-gray-800 mb-1">Пояснення:</h4>
-                                        <p className="text-gray-700 text-sm leading-relaxed">
-                                            {currentCard.explanation}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Example */}
-                                {currentCard.example && (
-                                    <div>
-                                        <h4 className="text-sm font-semibold text-gray-800 mb-1">Приклад:</h4>
-                                        <p className="text-gray-700 italic text-sm leading-relaxed bg-white p-2 rounded border">
-                                            "{currentCard.example}"
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            <p className="text-gray-500 text-center text-xs mt-2 pb-1">
-                                Натисніть, щоб повернутися до слова
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Card Actions */}
-                <div className="absolute top-4 right-4 flex space-x-2">
+            {/* Main Card Container */}
+            <div className="relative">
+                {/* Card Actions - Outside the card */}
+                <div className="absolute -top-2 -right-2 flex space-x-2 z-20">
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation();
+                        onClick={() => {
                             if (!isChanging) onEdit(currentCard);
                         }}
                         disabled={isChanging}
@@ -278,8 +185,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                         <Edit className="w-5 h-5" />
                     </button>
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation();
+                        onClick={() => {
                             if (!isChanging) onDelete(currentCard._id);
                         }}
                         disabled={isChanging}
@@ -290,13 +196,122 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     </button>
                 </div>
 
-                {/* Audio Status Indicator */}
-                {isPlayingAudio && (
-                    <div className="absolute bottom-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                        <span>Відтворення...</span>
-                    </div>
-                )}
+                {/* Card Content */}
+                <div className="bg-white rounded-2xl shadow-2xl overflow-hidden h-[380px] md:h-[420px] relative">
+                    {/* Front Side */}
+                    {!isFlipped && (
+                        <div
+                            key={`front-${currentIndex}`}
+                            className={`h-full transition-all duration-300 ${
+                                isChanging ? 'opacity-70' : 'opacity-100'
+                            }`}
+                        >
+                            <div className="h-full flex flex-col justify-center items-center p-6 bg-gradient-to-br from-gray-50 to-gray-100">
+                                <div className="text-center space-y-6">
+                                    <h2 className="text-3xl font-bold text-gray-900 mb-3 break-words max-w-md">
+                                        {currentCard.text}
+                                    </h2>
+
+                                    {currentCard.transcription && (
+                                        <p className="text-base text-gray-600 font-mono">
+                                            [{currentCard.transcription}]
+                                        </p>
+                                    )}
+
+                                    {/* Audio Button - Separated from other content */}
+                                    <div className="py-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => speakText(currentCard.text)}
+                                            disabled={!currentCard.text || isPlayingAudio || isChanging}
+                                            className={`px-6 py-3 rounded-lg transition-colors shadow-md ${
+                                                isPlayingAudio
+                                                    ? 'bg-green-500 hover:bg-green-600 animate-pulse'
+                                                    : 'bg-purple-500 hover:bg-purple-600'
+                                            } disabled:bg-gray-300 disabled:cursor-not-allowed text-white flex items-center space-x-2 mx-auto`}
+                                            title={isPlayingAudio ? "Відтворення..." : "Прослухати вимову"}
+                                        >
+                                            <Volume2 className="w-5 h-5" />
+                                            <span>{isPlayingAudio ? "Відтворення..." : "Озвучити"}</span>
+                                        </button>
+                                    </div>
+
+                                    <p className="text-gray-500 text-base">
+                                        Натисніть Пробіл/Enter, щоб побачити переклад
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Back Side */}
+                    {isFlipped && (
+                        <div
+                            key={`back-${currentIndex}`}
+                            className={`h-full transition-all duration-300 ${
+                                isChanging ? 'opacity-70' : 'opacity-100'
+                            }`}
+                        >
+                            <div className="h-full flex flex-col p-6 bg-gradient-to-br from-slate-50 to-slate-100">
+                                <div className="overflow-y-auto flex-1 space-y-3">
+                                    {/* Word and Transcription */}
+                                    <div className="text-center border-b border-slate-200 pb-2 mb-3">
+                                        <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                            {currentCard.text}
+                                        </h3>
+                                        {currentCard.transcription && (
+                                            <p className="text-gray-600 font-mono text-sm">
+                                                [{currentCard.transcription}]
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Translation */}
+                                    {currentCard.translation && (
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-gray-800 mb-1">Переклад:</h4>
+                                            <p className="text-lg text-gray-900 font-medium">
+                                                {currentCard.translation}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Explanation */}
+                                    {currentCard.explanation && (
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-gray-800 mb-1">Пояснення:</h4>
+                                            <p className="text-gray-700 text-sm leading-relaxed">
+                                                {currentCard.explanation}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Example */}
+                                    {currentCard.example && (
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-gray-800 mb-1">Приклад:</h4>
+                                            <p className="text-gray-700 italic text-sm leading-relaxed bg-white p-2 rounded border">
+                                                "{currentCard.example}"
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <p className="text-gray-500 text-center text-xs mt-2 pb-1">
+                                    Натисніть Пробіл/Enter, щоб повернутися до слова
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Audio Status Indicator */}
+                    {isPlayingAudio && (
+                        <div className="absolute bottom-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs flex items-center space-x-2 z-10">
+                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                            <span>Відтворення...</span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Navigation */}

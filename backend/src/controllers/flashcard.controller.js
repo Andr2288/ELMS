@@ -4,7 +4,7 @@ import Flashcard from "../models/flashcard.model.js";
 
 const createFlashcard = async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, transcription, translation, explanation, example } = req.body;
     const userId = req.user._id;
 
     if (!text) {
@@ -13,6 +13,10 @@ const createFlashcard = async (req, res) => {
 
     const newFlashcard = new Flashcard({
       text: text.trim(),
+      transcription: transcription?.trim() || "",
+      translation: translation?.trim() || "",
+      explanation: explanation?.trim() || "",
+      example: example?.trim() || "",
       userId,
     });
 
@@ -41,7 +45,7 @@ const getFlashcards = async (req, res) => {
 const updateFlashcard = async (req, res) => {
   try {
     const { id } = req.params;
-    const { text } = req.body;
+    const { text, transcription, translation, explanation, example } = req.body;
     const userId = req.user._id;
 
     if (!text) {
@@ -55,6 +59,11 @@ const updateFlashcard = async (req, res) => {
     }
 
     flashcard.text = text.trim();
+    flashcard.transcription = transcription?.trim() || "";
+    flashcard.translation = translation?.trim() || "";
+    flashcard.explanation = explanation?.trim() || "";
+    flashcard.example = example?.trim() || "";
+
     await flashcard.save();
 
     return res.status(200).json(flashcard);

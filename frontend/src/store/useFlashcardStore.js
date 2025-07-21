@@ -21,9 +21,9 @@ export const useFlashcardStore = create((set, get) => ({
     }
   },
 
-  createFlashcard: async (text) => {
+  createFlashcard: async (flashcardData) => {
     try {
-      const res = await axiosInstance.post("/flashcards", { text });
+      const res = await axiosInstance.post("/flashcards", flashcardData);
       set({ flashcards: [res.data, ...get().flashcards] });
       toast.success("Flashcard created!");
       return res.data;
@@ -34,12 +34,12 @@ export const useFlashcardStore = create((set, get) => ({
     }
   },
 
-  updateFlashcard: async (id, text) => {
+  updateFlashcard: async (id, flashcardData) => {
     try {
-      const res = await axiosInstance.put(`/flashcards/${id}`, { text });
+      const res = await axiosInstance.put(`/flashcards/${id}`, flashcardData);
       set({
         flashcards: get().flashcards.map((card) =>
-          card._id === id ? res.data : card
+            card._id === id ? res.data : card
         ),
       });
       toast.success("Flashcard updated!");

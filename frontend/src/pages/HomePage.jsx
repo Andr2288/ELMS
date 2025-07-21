@@ -1,57 +1,57 @@
+// frontend/src/pages/HomePage.jsx
+
 import { useState, useEffect } from "react";
 import { useFlashcardStore } from "../store/useFlashcardStore.js";
-import { Plus, Edit, Trash2, Save, X, BookOpen } from "lucide-react";
+import { Plus, Edit, Trash2, BookOpen, Grid3X3, Eye } from "lucide-react";
+import DetailedFlashcardView from "../components/DetailedFlashcardView.jsx";
+import FlashcardForm from "../components/FlashcardForm.jsx";
 
 const HomePage = () => {
     const { flashcards, isLoading, getFlashcards, createFlashcard, updateFlashcard, deleteFlashcard } = useFlashcardStore();
-    const [newCardText, setNewCardText] = useState("");
-    const [editingId, setEditingId] = useState(null);
-    const [editText, setEditText] = useState("");
-    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [viewMode, setViewMode] = useState("grid"); // "grid" or "detailed"
+    const [editingCard, setEditingCard] = useState(null);
+    const [showForm, setShowForm] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         getFlashcards();
     }, [getFlashcards]);
 
-    const handleCreate = async (e) => {
-        e.preventDefault();
-        if (!newCardText.trim()) return;
-
+    const handleCreateSubmit = async (formData) => {
+        setIsSubmitting(true);
         try {
-            await createFlashcard(newCardText);
-            setNewCardText("");
-            setShowCreateForm(false);
-        } catch (error) {
-            console.error('Error creating flashcard:', error);
+            await createFlashcard(formData);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleEditSubmit = async (formData) => {
+        if (!editingCard) return;
+
+        setIsSubmitting(true);
+        try {
+            await updateFlashcard(editingCard._id, formData);
+            setEditingCard(null);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleEdit = (card) => {
-        setEditingId(card._id);
-        setEditText(card.text);
-    };
-
-    const handleSaveEdit = async () => {
-        if (!editText.trim()) return;
-
-        try {
-            await updateFlashcard(editingId, editText);
-            setEditingId(null);
-            setEditText("");
-        } catch (error) {
-            console.error('Error updating flashcard:', error);
-        }
-    };
-
-    const handleCancelEdit = () => {
-        setEditingId(null);
-        setEditText("");
+        setEditingCard(card);
+        setShowForm(true);
     };
 
     const handleDelete = async (id) => {
         if (window.confirm('Ви впевнені, що хочете видалити цю картку?')) {
             await deleteFlashcard(id);
         }
+    };
+
+    const closeForm = () => {
+        setShowForm(false);
+        setEditingCard(null);
     };
 
     if (isLoading) {
@@ -75,61 +75,48 @@ const HomePage = () => {
                             <h1 className="text-3xl font-bold text-gray-900">Мої флеш картки</h1>
                             <p className="text-gray-600 mt-1">Керуйте своїми картками для вивчення</p>
                         </div>
-                        <button
-                            onClick={() => setShowCreateForm(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
-                        >
-                            <Plus className="w-5 h-5" />
-                            <span>Нова картка</span>
-                        </button>
+
+                        <div className="flex items-center space-x-4">
+                            {/* View Mode Toggle */}
+                            <div className="flex bg-gray-100 rounded-lg p-1">
+                                <button
+                                    onClick={() => setViewMode("grid")}
+                                    className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                                        viewMode === "grid"
+                                            ? "bg-white text-blue-600 shadow-sm"
+                                            : "text-gray-600 hover:text-gray-900"
+                                    }`}
+                                >
+                                    <Grid3X3 className="w-4 h-4" />
+                                    <span>Сітка</span>
+                                </button>
+                                <button
+                                    onClick={() => setViewMode("detailed")}
+                                    className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                                        viewMode === "detailed"
+                                            ? "bg-white text-blue-600 shadow-sm"
+                                            : "text-gray-600 hover:text-gray-900"
+                                    }`}
+                                >
+                                    <Eye className="w-4 h-4" />
+                                    <span>Детально</span>
+                                </button>
+                            </div>
+
+                            {/* Add Button */}
+                            <button
+                                onClick={() => setShowForm(true)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors"
+                            >
+                                <Plus className="w-5 h-5" />
+                                <span>Нова картка</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="p-8">
-                {/* Create Form */}
-                {showCreateForm && (
-                    <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-                        <h2 className="text-xl font-semibold mb-4 text-gray-900">Створити нову картку</h2>
-                        <form onSubmit={handleCreate}>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Текст картки
-                                </label>
-                                <textarea
-                                    value={newCardText}
-                                    onChange={(e) => setNewCardText(e.target.value)}
-                                    placeholder="Введіть слово або фразу..."
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                                    rows="3"
-                                    required
-                                />
-                            </div>
-                            <div className="flex space-x-3">
-                                <button
-                                    type="submit"
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    <span>Створити</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowCreateForm(false);
-                                        setNewCardText("");
-                                    }}
-                                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-                                >
-                                    <X className="w-4 h-4" />
-                                    <span>Скасувати</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
-                {/* Flashcards Grid */}
+            <div className="p-6">
                 {flashcards.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="text-gray-400 mb-4">
@@ -139,38 +126,42 @@ const HomePage = () => {
                         <p className="text-gray-600">Створіть свою першу флеш картку для початку вивчення</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {flashcards.map((card) => (
-                            <div key={card._id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                                <div className="p-6">
-                                    {editingId === card._id ? (
-                                        <div>
-                                            <textarea
-                                                value={editText}
-                                                onChange={(e) => setEditText(e.target.value)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                                                rows="3"
-                                            />
-                                            <div className="flex space-x-2 mt-3">
-                                                <button
-                                                    onClick={handleSaveEdit}
-                                                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm flex items-center space-x-1 transition-colors"
-                                                >
-                                                    <Save className="w-3 h-3" />
-                                                    <span>Зберегти</span>
-                                                </button>
-                                                <button
-                                                    onClick={handleCancelEdit}
-                                                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 py-1 rounded text-sm flex items-center space-x-1 transition-colors"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                    <span>Скасувати</span>
-                                                </button>
+                    <>
+                        {viewMode === "detailed" ? (
+                            <DetailedFlashcardView
+                                flashcards={flashcards}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
+                            />
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {flashcards.map((card) => (
+                                    <div key={card._id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
+                                        <div className="p-6">
+                                            <div className="mb-4">
+                                                <h3 className="text-lg font-bold text-gray-900 mb-2 break-words">
+                                                    {card.text}
+                                                </h3>
+
+                                                {card.transcription && (
+                                                    <p className="text-sm text-gray-600 font-mono mb-2">
+                                                        [{card.transcription}]
+                                                    </p>
+                                                )}
+
+                                                {card.translation && (
+                                                    <p className="text-blue-600 font-medium mb-2">
+                                                        {card.translation}
+                                                    </p>
+                                                )}
+
+                                                {card.explanation && (
+                                                    <p className="text-gray-700 text-sm line-clamp-2">
+                                                        {card.explanation}
+                                                    </p>
+                                                )}
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <p className="text-gray-900 mb-4 min-h-[60px] break-words">{card.text}</p>
+
                                             <div className="flex justify-between items-center">
                                                 <span className="text-xs text-gray-500">
                                                     {new Date(card.createdAt).toLocaleDateString('uk-UA')}
@@ -191,13 +182,22 @@ const HomePage = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </>
                 )}
             </div>
+
+            {/* Form Modal */}
+            <FlashcardForm
+                isOpen={showForm}
+                onClose={closeForm}
+                onSubmit={editingCard ? handleEditSubmit : handleCreateSubmit}
+                editingCard={editingCard}
+                isLoading={isSubmitting}
+            />
         </div>
     );
 };

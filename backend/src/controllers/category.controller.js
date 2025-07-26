@@ -128,21 +128,27 @@ const deleteCategory = async (req, res) => {
             return res.status(404).json({ message: "Category not found" });
         }
 
-        // Check if category has flashcards
+        // Count flashcards in this category
         const flashcardsCount = await Flashcard.countDocuments({
             categoryId: id,
             userId
         });
 
+        // Delete all flashcards in this category first
         if (flashcardsCount > 0) {
-            return res.status(400).json({
-                message: `Cannot delete category. It contains ${flashcardsCount} flashcard(s). Please move or delete them first.`
+            await Flashcard.deleteMany({
+                categoryId: id,
+                userId
             });
         }
 
+        // Then delete the category
         await Category.findOneAndDelete({ _id: id, userId });
 
-        return res.status(200).json({ message: "Category deleted" });
+        return res.status(200).json({
+            message: "Category deleted",
+            deletedFlashcardsCount: flashcardsCount
+        });
     } catch (error) {
         console.log("Error in deleteCategory controller", error.message);
         return res.status(500).json({ message: "Internal Server Error" });

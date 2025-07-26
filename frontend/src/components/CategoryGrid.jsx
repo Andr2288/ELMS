@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Folder, Edit, Trash2, Plus } from "lucide-react";
 import { useCategoryStore } from "../store/useCategoryStore.js";
 import CategoryForm from "./CategoryForm.jsx";
-import ConfirmDeleteModal from "./ConfirmDeleteModal.jsx";
+import ConfirmDeleteCategoryModal from "./ConfirmDeleteCategoryModal.jsx";
 
 const CategoryGrid = ({ onCategorySelect, selectedCategoryId }) => {
     const { categories, isLoading, deleteCategory } = useCategoryStore();
@@ -261,16 +261,13 @@ const CategoryGrid = ({ onCategorySelect, selectedCategoryId }) => {
                 onSubmit={handleFormSubmit}
             />
 
-            {/* Delete Confirmation Modal */}
-            <ConfirmDeleteModal
+            {/* Delete Confirmation Modal for Categories */}
+            <ConfirmDeleteCategoryModal
                 isOpen={showDeleteModal}
                 onClose={handleDeleteCancel}
                 onConfirm={handleDeleteConfirm}
-                cardText={categoryToDelete?.name}
+                category={categoryToDelete}
                 isDeleting={isDeleting}
-                title="Підтвердження видалення папки"
-                message="Ви впевнені, що хочете видалити цю папку?"
-                warningText="Папка повинна бути порожньою для видалення. Спочатку перемістіть або видаліть всі картки з неї."
             />
         </div>
     );

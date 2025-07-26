@@ -59,7 +59,9 @@ export const useCategoryStore = create((set, get) => ({
 
     deleteCategory: async (id) => {
         try {
-            await axiosInstance.delete(`/categories/${id}`);
+            const res = await axiosInstance.delete(`/categories/${id}`);
+
+            // Remove category from state
             set({
                 categories: get().categories.filter((cat) => cat._id !== id),
             });
@@ -69,7 +71,21 @@ export const useCategoryStore = create((set, get) => ({
                 set({ selectedCategory: null });
             }
 
-            toast.success("Папку видалено!");
+            // Show success message with info about deleted flashcards
+            const deletedFlashcardsCount = res.data.deletedFlashcardsCount || 0;
+            if (deletedFlashcardsCount > 0) {
+                toast.success(`Папку видалено разом з ${deletedFlashcardsCount} картками!`);
+            } else {
+                toast.success("Папку видалено!");
+            }
+
+            // If we're using a global flashcard store, we should also trigger refresh there
+            // This is a bit of coupling, but necessary for keeping data in sync
+            if (window.refreshFlashcards) {
+                window.refreshFlashcards();
+            }
+
+            return res.data;
         } catch (error) {
             console.log("Error deleting category:", error);
 
@@ -133,5 +149,10 @@ export const useCategoryStore = create((set, get) => ({
             "#6366F1", // Indigo
             "#84CC16", // Lime
         ];
+    },
+
+    // Method to refresh categories (useful when called from other stores)
+    refreshCategories: () => {
+        get().getCategories();
     },
 }));

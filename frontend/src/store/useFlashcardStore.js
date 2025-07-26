@@ -133,6 +133,27 @@ export const useFlashcardStore = create((set, get) => ({
     set({ currentCategoryFilter: null });
   },
 
+  // Method to refresh current flashcards (useful when called from category deletion)
+  refreshFlashcards: () => {
+    const currentFilter = get().currentCategoryFilter;
+    get().getFlashcards(currentFilter);
+  },
+
+  // Method to handle category deletion - removes all flashcards from deleted category
+  handleCategoryDeleted: (deletedCategoryId) => {
+    // Remove flashcards that belonged to the deleted category
+    set({
+      flashcards: get().flashcards.filter((card) =>
+          card.categoryId?._id !== deletedCategoryId
+      ),
+    });
+
+    // If we were viewing the deleted category, switch to all flashcards
+    if (get().currentCategoryFilter === deletedCategoryId) {
+      get().getFlashcards(); // Load all flashcards
+    }
+  },
+
   // Utility functions
   getFlashcardsByCategory: (categoryId) => {
     return get().flashcards.filter(card => {
@@ -147,3 +168,11 @@ export const useFlashcardStore = create((set, get) => ({
     return get().flashcards.filter(card => !card.categoryId);
   },
 }));
+
+// Expose refresh method globally so category store can call it
+if (typeof window !== 'undefined') {
+  window.refreshFlashcards = () => {
+    const store = useFlashcardStore.getState();
+    store.refreshFlashcards();
+  };
+}

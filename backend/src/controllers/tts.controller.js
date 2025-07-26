@@ -22,8 +22,8 @@ const generateSpeech = async (req, res) => {
             return res.status(500).json({ message: "OpenAI API key not configured" });
         }
 
-        // Validate API key format
-        if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
+        // Improved API key validation - accepting both standard and project-based keys
+        if (!(process.env.OPENAI_API_KEY.startsWith('sk-'))) {
             return res.status(500).json({ message: "Invalid OpenAI API key format" });
         }
 
@@ -46,10 +46,10 @@ const generateSpeech = async (req, res) => {
 
         // Generate speech using OpenAI TTS with correct parameters
         const mp3 = await openai.audio.speech.create({
-            model: "tts-1", // Використовуємо базову модель TTS
-            voice: "alloy", // Стандартний голос
+            model: "gpt-4o-mini-tts", // Базова модель TTS
+            voice: "ash", // Стандартний голос
             input: text.substring(0, 4096), // Обмежуємо довжину тексту
-            speed: 0.9, // Slightly slower for learning
+            speed: 0.9, // Повільніше для навчання
             response_format: "mp3" // Явно вказуємо формат
         });
 
@@ -129,12 +129,16 @@ const testApiKey = async (req, res) => {
             return res.status(500).json({ message: "OpenAI API key not configured" });
         }
 
-        // Test with a simple chat completion instead of models.list
+        console.log("Testing API key:", process.env.OPENAI_API_KEY.substring(0, 10) + "...");
+
+        // Test with a simple chat completion
         const response = await openai.chat.completions.create({
             model: "gpt-3.5-turbo",
             messages: [{ role: "user", content: "Say 'API key works'" }],
             max_tokens: 5
         });
+
+        console.log("API test successful:", response.choices[0].message.content);
 
         return res.status(200).json({
             message: "API key is valid",
@@ -142,10 +146,21 @@ const testApiKey = async (req, res) => {
         });
     } catch (error) {
         console.log("API Key test failed:", error.message);
-        return res.status(401).json({
+        console.log("Full error:", error);
+
+        // Enhanced error details
+        let errorDetails = {
             message: "Invalid API key",
             error: error.message
-        });
+        };
+
+        // Add more context if available
+        if (error.response) {
+            errorDetails.status = error.response.status;
+            errorDetails.data = error.response.data;
+        }
+
+        return res.status(401).json(errorDetails);
     }
 };
 
@@ -156,7 +171,7 @@ const testTTS = async (req, res) => {
             return res.status(500).json({ message: "OpenAI API key not configured" });
         }
 
-        console.log("Testing TTS functionality...");
+        console.log("Testing TTS functionality with API key:", process.env.OPENAI_API_KEY.substring(0, 10) + "...");
 
         // Test with a simple TTS request
         const mp3 = await openai.audio.speech.create({
@@ -168,54 +183,94 @@ const testTTS = async (req, res) => {
 
         const buffer = Buffer.from(await mp3.arrayBuffer());
 
+        console.log("TTS test successful. Audio size:", buffer.length);
+
         return res.status(200).json({
             message: "TTS API works correctly",
             audio_size: buffer.length
         });
     } catch (error) {
         console.log("TTS test failed:", error.message);
-        console.log("Error details:", error);
+        console.log("Full error:", error);
 
-        return res.status(error.status || 500).json({
+        // Enhanced error details
+        let errorDetails = {
             message: "TTS test failed",
-            error: error.message,
-            details: error.response?.data || "Unknown error"
-        });
+            error: error.message
+        };
+
+        if (error.response) {
+            errorDetails.status = error.response.status;
+            errorDetails.data = error.response.data;
+        }
+
+        return res.status(error.status || 500).json(errorDetails);
     }
 };
 
-// Function to check available models
+// Function to check available models - updated for OpenAI API v5+
 const checkAvailableModels = async (req, res) => {
     try {
         if (!process.env.OPENAI_API_KEY) {
             return res.status(500).json({ message: "OpenAI API key not configured" });
         }
 
-        console.log("Checking available models...");
+        console.log("Checking available models with API key:", process.env.OPENAI_API_KEY.substring(0, 10) + "...");
 
-        const response = await openai.models.list();
-        const models = response.data;
+        // In OpenAI API v5+, the models API returns data differently
+        const modelsResponse = await openai.models.list();
+
+        // Log full response for debugging
+        console.log("Models API response:", JSON.stringify(modelsResponse).substring(0, 200) + "...");
+
+        // Extract model data - handle both newer and older API formats
+        const models = Array.isArray(modelsResponse.data)
+            ? modelsResponse.data
+            : (modelsResponse.data?.data || modelsResponse);
+
+        if (!Array.isArray(models)) {
+            console.log("Unexpected models format:", models);
+            return res.status(200).json({
+                message: "Models retrieved but in unexpected format",
+                raw_response: modelsResponse
+            });
+        }
 
         // Filter for TTS models
-        const ttsModels = models.filter(model =>
-            model.id.includes('tts') ||
-            model.id.includes('speech') ||
-            model.id === 'tts-1' ||
-            model.id === 'tts-1-hd'
-        );
+        const ttsModels = models.filter(model => {
+            const id = typeof model === 'string' ? model : model.id;
+            return id && (
+                id.includes('tts') ||
+                id.includes('speech') ||
+                id === 'tts-1' ||
+                id === 'tts-1-hd'
+            );
+        });
+
+        const modelIds = models.map(m => typeof m === 'string' ? m : m.id);
 
         return res.status(200).json({
             message: "Models retrieved successfully",
             total_models: models.length,
-            tts_models: ttsModels.map(m => m.id),
-            all_models: models.map(m => m.id).slice(0, 10) // показуємо перші 10
+            tts_models: ttsModels.map(m => typeof m === 'string' ? m : m.id),
+            all_models: modelIds.slice(0, 10) // показуємо перші 10
         });
     } catch (error) {
         console.log("Models check failed:", error.message);
-        return res.status(error.status || 500).json({
+        console.log("Full error:", error);
+
+        // Enhanced error details
+        let errorDetails = {
             message: "Failed to get models",
             error: error.message
-        });
+        };
+
+        if (error.response) {
+            errorDetails.status = error.response.status;
+            errorDetails.data = error.response.data;
+        }
+
+        return res.status(error.status || 500).json(errorDetails);
     }
 };
 

@@ -3,14 +3,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Edit, Trash2, Volume2 } from "lucide-react";
 import { axiosInstance } from "../lib/axios.js";
+import { useFlashcardStore } from "../store/useFlashcardStore.js";
 import toast from "react-hot-toast";
+import ConfirmDeleteModal from "./ConfirmDeleteModal.jsx";
 
-const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
+const DetailedFlashcardView = ({ flashcards, onEdit }) => {
+    const { deleteFlashcard } = useFlashcardStore();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     const [isChanging, setIsChanging] = useState(false);
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [currentAudio, setCurrentAudio] = useState(null);
+
+    // Delete confirmation modal states
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [cardToDelete, setCardToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const handleFlip = useCallback(() => {
         if (!isChanging) {
@@ -72,9 +80,6 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             // Stop any current audio
             stopCurrentAudio();
 
-            // Create a loading toast
-            //const loadingToast = toast.loading("Завантаження озвучення...");
-
             const response = await axiosInstance.post("/tts/speech",
                 { text },
                 {
@@ -82,9 +87,6 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     timeout: 30000 // 30 second timeout
                 }
             );
-
-            // Remove loading toast
-            //toast.dismiss(loadingToast);
 
             // Create audio blob and play
             const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
@@ -123,6 +125,36 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             }
         }
     }, [isChanging, isPlayingAudio, stopCurrentAudio]);
+
+    const handleDeleteClick = (card) => {
+        setCardToDelete(card);
+        setShowDeleteModal(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!cardToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            await deleteFlashcard(cardToDelete._id);
+            setShowDeleteModal(false);
+            setCardToDelete(null);
+
+            // Adjust current index if necessary
+            if (currentIndex >= flashcards.length - 1 && currentIndex > 0) {
+                setCurrentIndex(currentIndex - 1);
+            }
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        if (!isDeleting) {
+            setShowDeleteModal(false);
+            setCardToDelete(null);
+        }
+    };
 
     // Keyboard navigation
     useEffect(() => {
@@ -178,7 +210,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             {/* Main Card Container */}
             <div className="relative">
                 {/* Card Actions - Outside the card */}
-                <div className="absolute -top-2 -right-2 flex space-x-2 z-20">
+                <div className="absolute -top-2 right-3 flex space-x-2 z-20">
                     <button
                         onClick={() => {
                             if (!isChanging) onEdit(currentCard);
@@ -191,7 +223,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     </button>
                     <button
                         onClick={() => {
-                            if (!isChanging) onDelete(currentCard._id);
+                            if (!isChanging) handleDeleteClick(currentCard);
                         }}
                         disabled={isChanging}
                         className="bg-white/90 backdrop-blur-sm hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-red-600 p-2 rounded-full shadow-lg transition-colors"
@@ -354,6 +386,15 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     <ChevronRight className="w-4 h-4" />
                 </button>
             </div>
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmDeleteModal
+                isOpen={showDeleteModal}
+                onClose={handleDeleteCancel}
+                onConfirm={handleDeleteConfirm}
+                cardText={cardToDelete?.text}
+                isDeleting={isDeleting}
+            />
         </div>
     );
 };

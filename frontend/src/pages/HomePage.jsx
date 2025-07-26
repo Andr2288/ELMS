@@ -5,6 +5,7 @@ import { useFlashcardStore } from "../store/useFlashcardStore.js";
 import { Plus, Edit, Trash2, BookOpen, Grid3X3, Eye } from "lucide-react";
 import DetailedFlashcardView from "../components/DetailedFlashcardView.jsx";
 import FlashcardForm from "../components/FlashcardForm.jsx";
+import ConfirmDeleteModal from "../components/ConfirmDeleteModal.jsx";
 
 const HomePage = () => {
     const { flashcards, isLoading, getFlashcards, createFlashcard, updateFlashcard, deleteFlashcard } = useFlashcardStore();
@@ -12,6 +13,11 @@ const HomePage = () => {
     const [editingCard, setEditingCard] = useState(null);
     const [showForm, setShowForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Delete confirmation modal states
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [cardToDelete, setCardToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         getFlashcards();
@@ -43,9 +49,28 @@ const HomePage = () => {
         setShowForm(true);
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Ви впевнені, що хочете видалити цю картку?')) {
-            await deleteFlashcard(id);
+    const handleDeleteClick = (card) => {
+        setCardToDelete(card);
+        setShowDeleteModal(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!cardToDelete) return;
+
+        setIsDeleting(true);
+        try {
+            await deleteFlashcard(cardToDelete._id);
+            setShowDeleteModal(false);
+            setCardToDelete(null);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleDeleteCancel = () => {
+        if (!isDeleting) {
+            setShowDeleteModal(false);
+            setCardToDelete(null);
         }
     };
 
@@ -131,7 +156,7 @@ const HomePage = () => {
                             <DetailedFlashcardView
                                 flashcards={flashcards}
                                 onEdit={handleEdit}
-                                onDelete={handleDelete}
+                                onDelete={handleDeleteClick}
                             />
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -174,7 +199,7 @@ const HomePage = () => {
                                                         <Edit className="w-4 h-4" />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleDelete(card._id)}
+                                                        onClick={() => handleDeleteClick(card)}
                                                         className="text-red-600 hover:text-red-800 p-1 transition-colors"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
@@ -197,6 +222,15 @@ const HomePage = () => {
                 onSubmit={editingCard ? handleEditSubmit : handleCreateSubmit}
                 editingCard={editingCard}
                 isLoading={isSubmitting}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmDeleteModal
+                isOpen={showDeleteModal}
+                onClose={handleDeleteCancel}
+                onConfirm={handleDeleteConfirm}
+                cardText={cardToDelete?.text}
+                isDeleting={isDeleting}
             />
         </div>
     );

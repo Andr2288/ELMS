@@ -210,7 +210,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit }) => {
             {/* Main Card Container */}
             <div className="relative">
                 {/* Card Actions - Outside the card */}
-                <div className="absolute -top-2 right-3 flex space-x-2 z-20">
+                <div className="absolute top-7 right-3 flex space-x-2 z-20">
                     <button
                         onClick={() => {
                             if (!isChanging) onEdit(currentCard);

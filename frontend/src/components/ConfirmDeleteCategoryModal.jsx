@@ -18,7 +18,7 @@ const ConfirmDeleteCategoryModal = ({
     const flashcardsCount = category.flashcardsCount || 0;
 
     return (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gray-600/80 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
                 {/* Header */}
                 <div className="p-6 border-b border-gray-200">

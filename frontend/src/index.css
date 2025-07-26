@@ -29,3 +29,44 @@
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+/* Fade-in animation for audio status */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+/* Pulse effect for audio visualizer bars */
+@keyframes audio-pulse {
+    0%, 100% {
+        transform: scaleY(0.5);
+    }
+    50% {
+        transform: scaleY(1);
+    }
+}
+
+.audio-bar {
+    animation: audio-pulse 1s ease-in-out infinite;
+}
+
+/* Enhanced button hover effects */
+.button-audio-active {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+    transform: scale(1.05);
+}
+
+.button-audio-idle:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3);
+}

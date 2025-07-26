@@ -94,10 +94,17 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
             setIsPlayingAudio(false);
             console.error("Error playing TTS:", error);
 
+            // Improved error handling based on new backend responses
             if (error.response?.status === 401) {
-                toast.error("OpenAI API ключ не налаштований");
+                toast.error("OpenAI API ключ недійсний. Перевірте налаштування в Settings");
+            } else if (error.response?.status === 402) {
+                toast.error("Недостатньо кредитів OpenAI. Поповніть баланс");
             } else if (error.response?.status === 429) {
-                toast.error("Перевищено ліміт запитів API");
+                toast.error("Перевищено ліміт запитів OpenAI. Спробуйте пізніше");
+            } else if (error.response?.status === 503) {
+                toast.error("Проблеми з підключенням до OpenAI API");
+            } else if (error.response?.status === 500) {
+                toast.error("OpenAI API не налаштований на сервері");
             } else if (error.code === 'ECONNABORTED') {
                 toast.error("Тайм-аут запиту. Спробуйте ще раз");
             } else {
@@ -130,6 +137,34 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
         stopCurrentAudio();
         onClose();
     };
+
+    // ДОДАНО: Обробник клавіш для озвучки (тільки коли не вводиться текст)
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleKeyPress = (event) => {
+            // Перевіряємо чи не знаходиться фокус на полі введення
+            const activeElement = document.activeElement;
+            const isInputField = activeElement && (
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.contentEditable === 'true'
+            );
+
+            // Якщо користувач вводить текст, не обробляємо клавіші
+            if (isInputField) return;
+
+            if (event.key === 'v' || event.key === 'V' || event.key === 'м' || event.key === 'М') {
+                event.preventDefault();
+                if (formData.text.trim()) {
+                    speakText(formData.text);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [isOpen, formData.text, speakText]);
 
     // Stop audio when component unmounts
     useEffect(() => {
@@ -181,11 +216,14 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                                         ? 'bg-green-500 hover:bg-green-600 animate-pulse'
                                         : 'bg-purple-500 hover:bg-purple-600'
                                 } disabled:bg-gray-300 disabled:cursor-not-allowed text-white`}
-                                title={isPlayingAudio ? "Відтворення..." : "Прослухати вимову"}
+                                title={isPlayingAudio ? "Відтворення..." : "Прослухати вимову (або натисніть V поза полями вводу)"}
                             >
                                 <Volume2 className="w-5 h-5" />
                             </button>
                         </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Натисніть V поза полями вводу для швидкої озвучки
+                        </p>
                     </div>
 
                     {/* Transcription */}

@@ -7,15 +7,24 @@ import toast from "react-hot-toast";
 export const useFlashcardStore = create((set, get) => ({
   flashcards: [],
   isLoading: false,
+  currentCategoryFilter: null, // null = all, 'uncategorized' = without category, categoryId = specific category
 
-  getFlashcards: async () => {
+  getFlashcards: async (categoryId = null) => {
     set({ isLoading: true });
     try {
-      const res = await axiosInstance.get("/flashcards");
-      set({ flashcards: res.data });
+      let url = "/flashcards";
+      if (categoryId) {
+        url += `?categoryId=${categoryId}`;
+      }
+
+      const res = await axiosInstance.get(url);
+      set({
+        flashcards: res.data,
+        currentCategoryFilter: categoryId
+      });
     } catch (error) {
       console.log("Error getting flashcards:", error);
-      toast.error("Failed to get flashcards");
+      toast.error("Помилка завантаження карток");
     } finally {
       set({ isLoading: false });
     }
@@ -24,12 +33,27 @@ export const useFlashcardStore = create((set, get) => ({
   createFlashcard: async (flashcardData) => {
     try {
       const res = await axiosInstance.post("/flashcards", flashcardData);
-      set({ flashcards: [res.data, ...get().flashcards] });
-      toast.success("Flashcard created!");
+
+      // Add to current list if it matches the filter
+      const currentFilter = get().currentCategoryFilter;
+      const newFlashcard = res.data;
+
+      const shouldAddToList =
+          !currentFilter || // showing all
+          (currentFilter === 'uncategorized' && !newFlashcard.categoryId) ||
+          (newFlashcard.categoryId?._id === currentFilter);
+
+      if (shouldAddToList) {
+        set({ flashcards: [newFlashcard, ...get().flashcards] });
+      }
+
+      toast.success("Картку створено!");
       return res.data;
     } catch (error) {
       console.log("Error creating flashcard:", error);
-      toast.error("Failed to create flashcard");
+
+      const message = error.response?.data?.message || "Помилка створення картки";
+      toast.error(message);
       throw error;
     }
   },
@@ -37,16 +61,36 @@ export const useFlashcardStore = create((set, get) => ({
   updateFlashcard: async (id, flashcardData) => {
     try {
       const res = await axiosInstance.put(`/flashcards/${id}`, flashcardData);
+      const updatedFlashcard = res.data;
+
+      // Update in current list
       set({
         flashcards: get().flashcards.map((card) =>
-            card._id === id ? res.data : card
+            card._id === id ? updatedFlashcard : card
         ),
       });
-      toast.success("Flashcard updated!");
+
+      // Check if the updated flashcard should still be in the current filter
+      const currentFilter = get().currentCategoryFilter;
+      const shouldBeInList =
+          !currentFilter || // showing all
+          (currentFilter === 'uncategorized' && !updatedFlashcard.categoryId) ||
+          (updatedFlashcard.categoryId?._id === currentFilter);
+
+      if (!shouldBeInList) {
+        // Remove from current list if it no longer matches filter
+        set({
+          flashcards: get().flashcards.filter((card) => card._id !== id),
+        });
+      }
+
+      toast.success("Картку оновлено!");
       return res.data;
     } catch (error) {
       console.log("Error updating flashcard:", error);
-      toast.error("Failed to update flashcard");
+
+      const message = error.response?.data?.message || "Помилка оновлення картки";
+      toast.error(message);
       throw error;
     }
   },
@@ -57,10 +101,49 @@ export const useFlashcardStore = create((set, get) => ({
       set({
         flashcards: get().flashcards.filter((card) => card._id !== id),
       });
-      toast.success("Flashcard deleted!");
+      toast.success("Картку видалено!");
     } catch (error) {
       console.log("Error deleting flashcard:", error);
-      toast.error("Failed to delete flashcard");
+
+      const message = error.response?.data?.message || "Помилка видалення картки";
+      toast.error(message);
     }
+  },
+
+  getFlashcardsGrouped: async () => {
+    set({ isLoading: true });
+    try {
+      const res = await axiosInstance.get("/flashcards/grouped");
+      return res.data;
+    } catch (error) {
+      console.log("Error getting grouped flashcards:", error);
+      toast.error("Помилка завантаження карток");
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  // Filter functions
+  setCategoryFilter: (categoryId) => {
+    set({ currentCategoryFilter: categoryId });
+  },
+
+  clearFilter: () => {
+    set({ currentCategoryFilter: null });
+  },
+
+  // Utility functions
+  getFlashcardsByCategory: (categoryId) => {
+    return get().flashcards.filter(card => {
+      if (categoryId === 'uncategorized') {
+        return !card.categoryId;
+      }
+      return card.categoryId?._id === categoryId;
+    });
+  },
+
+  getUncategorizedFlashcards: () => {
+    return get().flashcards.filter(card => !card.categoryId);
   },
 }));

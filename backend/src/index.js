@@ -7,6 +7,7 @@ import cors from "cors";
 
 import authRoutes from "./routes/auth.route.js";
 import flashcardRoutes from "./routes/flashcard.route.js";
+import categoryRoutes from "./routes/category.route.js";
 import ttsRoutes from "./routes/tts.route.js";
 import database from "./lib/db.js";
 
@@ -38,6 +39,7 @@ app.use(
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/flashcards", flashcardRoutes);
+app.use("/api/categories", categoryRoutes);
 app.use("/api/tts", ttsRoutes);
 
 // Health check endpoint

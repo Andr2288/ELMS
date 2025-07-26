@@ -1,20 +1,31 @@
 // frontend/src/components/FlashcardForm.jsx
 
 import { useState, useEffect } from "react";
-import { Save, X, Volume2 } from "lucide-react";
+import { Save, X, Volume2, Folder } from "lucide-react";
 import { axiosInstance } from "../lib/axios.js";
+import { useCategoryStore } from "../store/useCategoryStore.js";
 import toast from "react-hot-toast";
 
-const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) => {
+const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading, preselectedCategoryId }) => {
+    const { categories, getCategories } = useCategoryStore();
+
     const [formData, setFormData] = useState({
         text: "",
         transcription: "",
         translation: "",
         explanation: "",
-        example: ""
+        example: "",
+        categoryId: ""
     });
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [currentAudio, setCurrentAudio] = useState(null);
+
+    // Load categories when form opens
+    useEffect(() => {
+        if (isOpen) {
+            getCategories();
+        }
+    }, [isOpen, getCategories]);
 
     useEffect(() => {
         if (editingCard) {
@@ -23,7 +34,8 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                 transcription: editingCard.transcription || "",
                 translation: editingCard.translation || "",
                 explanation: editingCard.explanation || "",
-                example: editingCard.example || ""
+                example: editingCard.example || "",
+                categoryId: editingCard.categoryId?._id || ""
             });
         } else {
             setFormData({
@@ -31,10 +43,11 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                 transcription: "",
                 translation: "",
                 explanation: "",
-                example: ""
+                example: "",
+                categoryId: preselectedCategoryId || ""
             });
         }
-    }, [editingCard, isOpen]);
+    }, [editingCard, isOpen, preselectedCategoryId]);
 
     const stopCurrentAudio = () => {
         if (currentAudio) {
@@ -118,7 +131,13 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
         if (!formData.text.trim()) return;
 
         try {
-            await onSubmit(formData);
+            // Convert empty categoryId to null
+            const submitData = {
+                ...formData,
+                categoryId: formData.categoryId || null
+            };
+
+            await onSubmit(submitData);
             stopCurrentAudio();
             onClose();
         } catch (error) {
@@ -148,6 +167,7 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
             const isInputField = activeElement && (
                 activeElement.tagName === 'INPUT' ||
                 activeElement.tagName === 'TEXTAREA' ||
+                activeElement.tagName === 'SELECT' ||
                 activeElement.contentEditable === 'true'
             );
 
@@ -175,6 +195,8 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
 
     if (!isOpen) return null;
 
+    const selectedCategory = categories.find(cat => cat._id === formData.categoryId);
+
     return (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -193,6 +215,39 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {/* Category Selection */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Папка
+                        </label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Folder className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <select
+                                value={formData.categoryId}
+                                onChange={(e) => handleInputChange('categoryId', e.target.value)}
+                                className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                            >
+                                <option value="">Без папки</option>
+                                {categories.map((category) => (
+                                    <option key={category._id} value={category._id}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        {selectedCategory && (
+                            <div className="mt-2 flex items-center space-x-2 text-sm text-gray-600">
+                                <div
+                                    className="w-4 h-4 rounded"
+                                    style={{ backgroundColor: selectedCategory.color }}
+                                ></div>
+                                <span>Вибрана папка: {selectedCategory.name}</span>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Word/Text */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -289,6 +344,18 @@ const FlashcardForm = ({ isOpen, onClose, onSubmit, editingCard, isLoading }) =>
                     {formData.text && (
                         <div className="bg-gray-50 rounded-lg p-4">
                             <h3 className="text-sm font-medium text-gray-700 mb-2">Попередній перегляд:</h3>
+
+                            {/* Category in preview */}
+                            {selectedCategory && (
+                                <div className="flex items-center space-x-2 mb-2">
+                                    <div
+                                        className="w-4 h-4 rounded"
+                                        style={{ backgroundColor: selectedCategory.color }}
+                                    ></div>
+                                    <span className="text-xs text-gray-600">{selectedCategory.name}</span>
+                                </div>
+                            )}
+
                             <div className="text-lg font-bold text-gray-900">{formData.text}</div>
                             {formData.transcription && (
                                 <div className="text-gray-600 font-mono text-sm">[{formData.transcription}]</div>

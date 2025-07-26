@@ -134,12 +134,17 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
             } else if (event.key === ' ' || event.key === 'Enter') {
                 event.preventDefault();
                 handleFlip();
+            } else if (event.key === 'v' || event.key === 'V' || event.key === 'м' || event.key === 'М') {
+                event.preventDefault();
+                if (flashcards[currentIndex]?.text) {
+                    speakText(flashcards[currentIndex].text);
+                }
             }
         };
 
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [prevCard, nextCard, handleFlip]);
+    }, [prevCard, nextCard, handleFlip, speakText, currentIndex, flashcards]);
 
     // Stop audio when component unmounts or card changes
     useEffect(() => {
@@ -166,7 +171,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                     {currentIndex + 1} з {flashcards.length}
                 </span>
                 <p className="text-xs text-gray-500 mt-2">
-                    ← → для навігації • Пробіл/Enter для перевороту
+                    ← → для навігації • Пробіл/Enter для перевороту • V для озвучення
                 </p>
             </div>
 
@@ -229,7 +234,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                                                     ? 'bg-green-500 hover:bg-green-600 animate-pulse'
                                                     : 'bg-purple-500 hover:bg-purple-600'
                                             } disabled:bg-gray-300 disabled:cursor-not-allowed text-white flex items-center space-x-2 mx-auto`}
-                                            title={isPlayingAudio ? "Відтворення..." : "Прослухати вимову"}
+                                            title={isPlayingAudio ? "Відтворення..." : "Прослухати вимову (або натисніть V)"}
                                         >
                                             <Volume2 className="w-5 h-5" />
                                             <span>{isPlayingAudio ? "Відтворення..." : "Озвучити"}</span>
@@ -298,7 +303,7 @@ const DetailedFlashcardView = ({ flashcards, onEdit, onDelete }) => {
                                 </div>
 
                                 <p className="text-gray-500 text-center text-xs mt-2 pb-1">
-                                    Натисніть Пробіл/Enter, щоб повернутися до слова
+                                    Натисніть Пробіл/Enter, щоб повернутися до слова • V для озвучення
                                 </p>
                             </div>
                         </div>
